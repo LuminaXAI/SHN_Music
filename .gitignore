@@ -1,0 +1,39 @@
+﻿# Gradle / IDE
+.gradle/
+.gradle-bootstrap/
+.gradle-user-home/
+.wrapper-generator/
+**/build/
+build/
+.idea/
+.gradle/
+.kotlinc/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+
+# Local machine
+local.properties
+
+# Temporary files
+.java-temp/
+*.tmp
+*.log
+*.hprof
+
+# Backup folders/files
+*_backup_*/
+_build_fix_backup_*/
+
+# Secrets / signing
+.env
+.env.*
+*.keystore
+*.jks
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Manifest backups
+AndroidManifest.xml.bak_*
