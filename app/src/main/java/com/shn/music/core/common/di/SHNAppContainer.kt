@@ -2,6 +2,7 @@
 
 import android.content.Context
 import com.shn.music.core.database.DatabaseProvider
+import com.shn.music.core.audio.AudioSettingsStore
 import com.shn.music.core.media.player.SHNMusicPlayerController
 import com.shn.music.core.media.queue.QueueStore
 import com.shn.music.core.media.scanner.MusicScanner
@@ -23,6 +24,8 @@ class SHNAppContainer(
 
     private val queueStore =
         QueueStore(appContext)
+
+    val audioSettingsStore = AudioSettingsStore(appContext)
 
     val songRepository =
         SongRepository(

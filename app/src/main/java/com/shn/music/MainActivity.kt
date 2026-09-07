@@ -50,6 +50,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shn.music.core.settings.AppLanguage
 import com.shn.music.core.settings.AppSettingsStore
+import com.shn.music.core.audio.AudioSettingsStore
 import com.shn.music.core.media.player.SHNMusicPlayerController
 import com.shn.music.data.repository.SongRepository
 import com.shn.music.feature.home.CollectionRoute
@@ -115,6 +116,7 @@ class MainActivity : ComponentActivity() {
                     SHNMusicRoot(
                         repository = app.container.songRepository,
                         playerController = app.container.playerController,
+                        audioSettingsStore = app.container.audioSettingsStore,
                         settingsStore = settingsStore,
                         strings = strings
                     )
@@ -151,6 +153,7 @@ private data class SHNTab(
 private fun SHNMusicRoot(
     repository: SongRepository,
     playerController: SHNMusicPlayerController,
+    audioSettingsStore: AudioSettingsStore,
     settingsStore: AppSettingsStore,
     strings: ShNStrings
 ) {
@@ -242,7 +245,7 @@ private fun SHNMusicRoot(
             when {
                 showSearch -> SearchRoute(searchQuery, repository, playerController, strings)
                 showSettings -> SettingsRoute(settingsStore, strings)
-                showNowPlaying -> SHNNowPlayingRoute(repository, playerController, strings, onBack = { showNowPlaying = false }, onQueue = { showQueue = true })
+                showNowPlaying -> SHNNowPlayingRoute(repository, playerController, audioSettingsStore, strings, onBack = { showNowPlaying = false }, onQueue = { showQueue = true })
                 else -> Column(Modifier.fillMaxSize()) {
                     PrimaryScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,

@@ -34,6 +34,10 @@ import com.shn.music.core.media.player.QueueItemUi
 import com.shn.music.core.media.player.SHNMusicPlayerController
 import com.shn.music.data.repository.SongRepository
 import com.shn.music.ui.strings.ShNStrings
+import com.shn.music.core.audio.AudioSettingsStore
+import com.shn.music.ui.components.player.SHNMarqueeText
+import com.shn.music.ui.components.player.SHNPlayerGestureContainer
+import com.shn.music.ui.components.player.SHNAudioStudioSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -75,7 +79,7 @@ fun SHNMiniPlayer(
         ) {
             ArtworkImage(state.artworkUri, Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)))
             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                Text(state.title, maxLines = 1, style = MaterialTheme.typography.titleSmall)
+                SHNMarqueeText(state.title, style = MaterialTheme.typography.titleSmall)
                 Text(state.artist.ifBlank { "Unknown artist" }, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (queueSize > 0) IconButton(onClick = onQueue) { Icon(Icons.AutoMirrored.Filled.QueueMusic, "Queue") }
@@ -90,6 +94,7 @@ fun SHNMiniPlayer(
 fun SHNNowPlayingRoute(
     repository: SongRepository,
     playerController: SHNMusicPlayerController,
+    audioSettingsStore: AudioSettingsStore,
     strings: ShNStrings,
     onBack: () -> Unit,
     onQueue: () -> Unit
@@ -98,6 +103,7 @@ fun SHNNowPlayingRoute(
     val queue by playerController.queue.collectAsStateWithLifecycle()
     var favorite by remember(state.uri) { mutableStateOf(false) }
     var sliderPosition by remember(state.uri) { mutableFloatStateOf(state.position.toFloat()) }
+    var showAudioStudio by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.uri) {
@@ -126,14 +132,13 @@ fun SHNNowPlayingRoute(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(18.dp))
-            ArtworkImage(
-                state.artworkUri,
-                Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(28.dp))
-            )
+            SHNPlayerGestureContainer(onNext = playerController::next, onPrevious = playerController::previous) { gestureModifier ->
+                ArtworkImage(state.artworkUri, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(28.dp)).then(gestureModifier))
+            }
             Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(state.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
+                    SHNMarqueeText(state.title, style = MaterialTheme.typography.headlineSmall)
                     Text(state.artist.ifBlank { strings.unknownArtist }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (state.album.isNotBlank()) Text(state.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -169,11 +174,21 @@ fun SHNNowPlayingRoute(
                 IconButton(onClick = playerController::cycleRepeatMode) { Icon(Icons.Default.Repeat, null, tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current) }
             }
             Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showAudioStudio = true }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Tune, null); Spacer(Modifier.width(6.dp)); Text("Audio Studio") }
+                OutlinedButton(onClick = { if (state.abStartMs == null) playerController.setAbStart() else if (state.abEndMs == null) playerController.setAbEnd() else playerController.clearAbLoop() }, modifier = Modifier.weight(1f)) { Text(if (state.abEndMs != null) "A-B on" else "Set A-B") }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { playerController.startSleepTimer(15) }) { Text("Sleep 15m") }
+                TextButton(onClick = playerController::sleepAtEndOfSong) { Text("End of song") }
+                if (state.sleepRemainingMs != null) TextButton(onClick = playerController::cancelSleepTimer) { Text("Cancel sleep") }
+            }
             OutlinedButton(onClick = onQueue, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.AutoMirrored.Filled.QueueMusic, null); Spacer(Modifier.width(8.dp)); Text("${strings.queue} • ${queue.size}")
             }
         }
     }
+    if (showAudioStudio) SHNAudioStudioSheet(audioSettingsStore, playerController) { showAudioStudio = false }
 }
 
 @Composable

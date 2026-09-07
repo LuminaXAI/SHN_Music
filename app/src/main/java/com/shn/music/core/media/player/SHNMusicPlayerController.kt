@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -50,7 +51,11 @@ data class PlayerUiState(
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
     val shuffleEnabled: Boolean = false,
-    val repeatMode: Int = Player.REPEAT_MODE_OFF
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    val playbackSpeed: Float = 1f,
+    val sleepRemainingMs: Long? = null,
+    val abStartMs: Long? = null,
+    val abEndMs: Long? = null
 )
 
 class SHNMusicPlayerController(
@@ -74,6 +79,10 @@ class SHNMusicPlayerController(
     private var controller: MediaController? = null
     private var recordedPlayUri: String? = null
     private var lastResumePersistElapsed: Long = 0L
+    private var sleepEndsAt: Long? = null
+    private var endOfSongSleep = false
+    private var abStartMs: Long? = null
+    private var abEndMs: Long? = null
 
     private var controllerFuture:
         ListenableFuture<MediaController>? = null
@@ -108,6 +117,11 @@ class SHNMusicPlayerController(
                 publishState(player)
                 publishQueue(player)
 
+                if (endOfSongSleep && player.playbackState == Player.STATE_ENDED) {
+                    player.pause()
+                    endOfSongSleep = false
+                }
+
                 if (
                     events.contains(
                         Player.EVENT_MEDIA_ITEM_TRANSITION
@@ -136,6 +150,10 @@ class SHNMusicPlayerController(
                         persistCurrentResumePosition()
                         lastResumePersistElapsed = now
                     }
+                    val sleepEnd = sleepEndsAt
+                    if (sleepEnd != null && SystemClock.elapsedRealtime() >= sleepEnd) { player.pause(); sleepEndsAt = null }
+                    val a = abStartMs; val b = abEndMs
+                    if (a != null && b != null && player.currentPosition >= b) player.seekTo(a)
                 }
 
                 handler.postDelayed(
@@ -464,6 +482,15 @@ class SHNMusicPlayerController(
         )
     }
 
+    fun setPlaybackSpeed(speed: Float) { controller?.playbackParameters = PlaybackParameters(speed.coerceIn(.5f, 2f)) }
+
+    fun startSleepTimer(minutes: Int) { sleepEndsAt = SystemClock.elapsedRealtime() + minutes.coerceAtLeast(1) * 60_000L; endOfSongSleep = false }
+    fun sleepAtEndOfSong() { endOfSongSleep = true; sleepEndsAt = null }
+    fun cancelSleepTimer() { sleepEndsAt = null; endOfSongSleep = false }
+    fun setAbStart() { abStartMs = controller?.currentPosition }
+    fun setAbEnd() { abEndMs = controller?.currentPosition?.takeIf { abStartMs != null && it > abStartMs!! } }
+    fun clearAbLoop() { abStartMs = null; abEndMs = null }
+
     fun selectQueueItem(
         index: Int
     ) {
@@ -585,7 +612,11 @@ class SHNMusicPlayerController(
                 repeatMode =
                     normalizeRepeatMode(
                         player.repeatMode
-                    )
+                    ),
+                playbackSpeed = player.playbackParameters.speed,
+                sleepRemainingMs = sleepEndsAt?.let { (it - SystemClock.elapsedRealtime()).coerceAtLeast(0L) },
+                abStartMs = abStartMs,
+                abEndMs = abEndMs
             )
     }
 
