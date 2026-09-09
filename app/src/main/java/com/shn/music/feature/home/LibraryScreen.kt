@@ -5,12 +5,15 @@ package com.shn.music.feature.home
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,6 +25,7 @@ import com.shn.music.core.media.player.SHNMusicPlayerController
 import com.shn.music.data.repository.SongRepository
 import com.shn.music.ui.screens.playlists.PlaylistsRoute
 import com.shn.music.ui.screens.player.ArtworkImage
+import com.shn.music.ui.components.player.PlaybackIndicator
 import com.shn.music.ui.strings.ShNStrings
 import kotlinx.coroutines.launch
 
@@ -50,8 +54,12 @@ fun LibraryRoute(initialSection: LibrarySection = LibrarySection.SONGS, reposito
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            LibrarySection.entries.filter { it != LibrarySection.PLAYLISTS }.forEach { item ->
+        LazyRow(
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(LibrarySection.entries.filter { it != LibrarySection.PLAYLISTS }, key = { it.name }) { item ->
                 FilterChip(selected = item == section, onClick = { section = item }, label = { Text(localizedSectionTitle(item, strings)) })
             }
         }
@@ -67,22 +75,42 @@ fun LibraryRoute(initialSection: LibrarySection = LibrarySection.SONGS, reposito
 }
 
 @Composable private fun SongsLibrary(songs: List<SongEntity>, player: SHNMusicPlayerController) {
+    val playback by player.state.collectAsStateWithLifecycle()
     if (songs.isEmpty()) { EmptyLibrary("No songs"); return }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) { items(songs, key = { it.uri }) { song ->
-        Row(Modifier.fillMaxWidth().clickable { val i=songs.indexOfFirst { it.uri==song.uri }; player.playQueue(songs,i) }.padding(10.dp), verticalAlignment=Alignment.CenterVertically) {
-            ArtworkImage(song.artworkUri, Modifier.size(56.dp)); Column(Modifier.weight(1f).padding(horizontal=12.dp)) { Text(song.title, maxLines=1); Text(song.artist, maxLines=1, color=MaterialTheme.colorScheme.onSurfaceVariant) }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) { items(songs, key = { it.uri }) { song ->
+        val current = song.uri == playback.uri
+        Surface(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable {
+                val i = songs.indexOfFirst { it.uri == song.uri }; player.playQueue(songs, i)
+            },
+            shape = RoundedCornerShape(20.dp),
+            color = if (current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .38f)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                ArtworkImage(song.artworkUri, Modifier.size(58.dp).clip(RoundedCornerShape(15.dp)))
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(song.title, maxLines = 1, style = MaterialTheme.typography.titleSmall)
+                    Text(song.artist.ifBlank { "Unknown artist" }, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (current) PlaybackIndicator(playback.isPlaying, Modifier.padding(horizontal = 8.dp))
+            }
         }
     } }
 }
 
 @Composable private fun AggregateLibrary(items: List<Triple<String,String,String>>, hasArt: (Triple<String,String,String>)->Boolean, onOpen: (String,String,String)->Unit) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding=PaddingValues(bottom=16.dp)) { items(items, key={ "${it.first}-${it.second}" }) { item ->
-        Row(Modifier.fillMaxWidth().clickable { onOpen(item.first,item.second,item.third) }.padding(12.dp), verticalAlignment=Alignment.CenterVertically) {
-            if (hasArt(item)) ArtworkImage(item.third, Modifier.size(60.dp)) else Icon(Icons.Default.LibraryMusic, null, Modifier.size(42.dp))
+    LazyColumn(Modifier.fillMaxSize(), contentPadding=PaddingValues(start = 14.dp, end = 14.dp, bottom=24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { items(items, key={ "${it.first}-${it.second}" }) { item ->
+        Surface(Modifier.fillMaxWidth().clickable { onOpen(item.first,item.second,item.third) }, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .38f)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment=Alignment.CenterVertically) {
+            if (hasArt(item)) ArtworkImage(item.third, Modifier.size(60.dp).clip(RoundedCornerShape(16.dp))) else Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer) { Icon(Icons.Default.LibraryMusic, null, Modifier.padding(12.dp).size(36.dp), tint = MaterialTheme.colorScheme.primary) }
             Column(Modifier.weight(1f).padding(horizontal=12.dp)) { Text(item.first, maxLines=1); if(item.second.isNotBlank()) Text(item.second, maxLines=1, color=MaterialTheme.colorScheme.onSurfaceVariant) }
             Icon(Icons.Default.ChevronRight, null)
         }
-        HorizontalDivider()
+        }
     } }
 }
 

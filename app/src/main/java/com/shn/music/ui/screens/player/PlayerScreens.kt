@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +39,7 @@ import com.shn.music.core.audio.AudioSettingsStore
 import com.shn.music.ui.components.player.SHNMarqueeText
 import com.shn.music.ui.components.player.SHNPlayerGestureContainer
 import com.shn.music.ui.components.player.SHNAudioStudioSheet
+import com.shn.music.ui.components.player.PlaybackIndicator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -72,20 +74,37 @@ fun SHNMiniPlayer(
     onPrevious: () -> Unit,
     onQueue: () -> Unit
 ) {
-    Surface(Modifier.fillMaxWidth(), tonalElevation = 8.dp, shadowElevation = 8.dp) {
+    val progress = if (state.duration > 0) state.position.toFloat() / state.duration else 0f
+    Surface(
+        Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp,
+        shadowElevation = 16.dp
+    ) {
+        Column {
+            LinearProgressIndicator(
+                progress = { progress.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(2.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
         Row(
-            Modifier.fillMaxWidth().height(72.dp).clickable(onClick = onClick).padding(horizontal = 10.dp),
+            Modifier.fillMaxWidth().height(74.dp).clickable(onClick = onClick).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ArtworkImage(state.artworkUri, Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)))
+            ArtworkImage(state.artworkUri, Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)))
             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                SHNMarqueeText(state.title, style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PlaybackIndicator(state.isPlaying, Modifier.padding(end = 7.dp))
+                    SHNMarqueeText(state.title, style = MaterialTheme.typography.titleSmall)
+                }
                 Text(state.artist.ifBlank { "Unknown artist" }, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (queueSize > 0) IconButton(onClick = onQueue) { Icon(Icons.AutoMirrored.Filled.QueueMusic, "Queue") }
             IconButton(onClick = onPrevious) { Icon(Icons.Default.SkipPrevious, "Previous") }
-            IconButton(onClick = onPlayPause) { Icon(if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/Pause") }
+            FilledIconButton(onClick = onPlayPause) { Icon(if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/Pause") }
             IconButton(onClick = onNext) { Icon(Icons.Default.SkipNext, "Next") }
+        }
         }
     }
 }
@@ -128,12 +147,18 @@ fun SHNNowPlayingRoute(
             return@Scaffold
         }
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(horizontal = 22.dp).navigationBarsPadding(),
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .45f), MaterialTheme.colorScheme.background)
+                )
+            ).padding(padding).padding(horizontal = 22.dp).navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(18.dp))
             SHNPlayerGestureContainer(onNext = playerController::next, onPrevious = playerController::previous) { gestureModifier ->
-                ArtworkImage(state.artworkUri, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(28.dp)).then(gestureModifier))
+                Surface(shape = RoundedCornerShape(30.dp), shadowElevation = 18.dp) {
+                    ArtworkImage(state.artworkUri, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(30.dp)).then(gestureModifier))
+                }
             }
             Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -142,7 +167,7 @@ fun SHNNowPlayingRoute(
                     Text(state.artist.ifBlank { strings.unknownArtist }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (state.album.isNotBlank()) Text(state.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = {
+                FilledTonalIconButton(onClick = {
                     val uri = state.uri
                     if (uri.isNotBlank()) scope.launch(Dispatchers.Main) {
                         val song = repository.getSongByUri(uri)
